@@ -1,0 +1,7 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="MIT"
+[[mods]]
+modId="tierfix_test"
+version="1"
+displayName="Tier Fix Integration Tests"
