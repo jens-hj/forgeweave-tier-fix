@@ -6,6 +6,7 @@ BG = "#1b2030"
 COLORS = {
     "L": "#e6fffa", "M": "#5fdccb", "D": "#2a8f88",   # head: rim light, body, underside
     "w": "#d9a56a", "W": "#8a5f3b",                    # handle: lit side, shaded side
+    "A": "#ffd75e", "a": "#d39a2c",                    # tier arrow: face, shaded edge
 }
 
 # 16 x 16 pixel art, no antialiasing. The head is symmetric about the handle, so only
@@ -27,6 +28,16 @@ for y, row in enumerate(ARM):
 for k in range(0, 9):
     pixels[(9 - k, 4 + k)] = "w"
     pixels[(9 - k, 5 + k)] = "W"
+# Rising tier arrow in the free space between the handle and the lower arm.
+# Placed so it keeps a one-pixel gap to both, diagonals included.
+ARROW = ("..A..", ".AAa.", "AAAAa", "..a..")
+for y, row in enumerate(ARROW):
+    for x, c in enumerate(row):
+        if c != ".":
+            spot = (4 + x, 11 + y)
+            assert not any((spot[0] + dx, spot[1] + dy) in pixels and pixels[(spot[0] + dx, spot[1] + dy)] not in "Aa"
+                           for dx in (-1, 0, 1) for dy in (-1, 0, 1)), spot
+            pixels[spot] = c
 
 image = Image.new("RGB", (16, 16), BG)
 for (x, y), c in pixels.items():
