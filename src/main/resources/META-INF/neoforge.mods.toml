@@ -1,0 +1,34 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "MIT"
+issueTrackerURL = "https://github.com/jens-hj/forgeweave-tier-fix/issues"
+
+[[mods]]
+modId = "forgeweave_tier_fix"
+version = "${version}"
+displayName = "Forgeweave Tier Fix"
+authors = "jens-hj"
+logoFile = "icon.png"
+description = '''Stops Forgeweave's Diamond and Emerald modifiers from lowering the mining tier of higher-tier tools.'''
+
+[[mixins]]
+config = "forgeweave_tier_fix.mixins.json"
+
+[[dependencies.forgeweave_tier_fix]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.1]"
+side = "BOTH"
+
+[[dependencies.forgeweave_tier_fix]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.1.248,)"
+side = "BOTH"
+
+[[dependencies.forgeweave_tier_fix]]
+modId = "forgeweave"
+type = "required"
+versionRange = "[1.0.11]"
+ordering = "AFTER"
+side = "BOTH"

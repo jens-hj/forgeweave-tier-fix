@@ -1,0 +1,100 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.149'
+    id 'com.modrinth.minotaur' version '2.10.0'
+}
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+    withSourcesJar()
+}
+repositories {
+    mavenCentral()
+    maven { url = 'https://api.modrinth.com/maven' }
+}
+neoForge {
+    version = providers.gradleProperty('neoForgeVersion').getOrElse('21.1.268')
+    mods { forgeweave_tier_fix { sourceSet sourceSets.main } }
+}
+sourceSets {
+    testmod {
+        compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+        runtimeClasspath += sourceSets.main.runtimeClasspath
+    }
+}
+dependencies {
+    // Forgeweave 1.0.11 for Minecraft 1.21.1 (NeoForge).
+    implementation 'maven.modrinth:lVdUPPLr:7cWAIT8X'
+}
+processResources {
+    from('icon.png')
+    inputs.property 'version', project.version
+    filesMatching('META-INF/neoforge.mods.toml') { expand version: project.version }
+}
+tasks.withType(Jar).configureEach { from('LICENSE') }
+def modrinthToken = providers.environmentVariable('MODRINTH_TOKEN').orElse(
+    providers.fileContents(layout.projectDirectory.file("${System.getProperty('user.home')}/.config/modrinth-token"))
+        .asText.map { it.trim() })
+modrinth {
+    token = modrinthToken
+    projectId = 'forgeweave-tier-fix'
+    versionNumber = project.version
+    versionName = "${project.version} (NeoForge 1.21.1)"
+    versionType = 'release'
+    environment = 'server_only_client_optional'
+    uploadFile = jar
+    additionalFiles { sourcesJar(tasks.named('sourcesJar')) }
+    gameVersions = ['1.21.1']
+    loaders = ['neoforge']
+    changelog = providers.fileContents(layout.projectDirectory.file('CHANGELOG.md')).asText.map {
+        it.split('## ' + java.util.regex.Pattern.quote(project.version.toString()) + '\\s*', 2)[1].split('\\n## ', 2)[0].trim()
+    }
+    dependencies { required.version '7cWAIT8X' }
+    syncBodyFrom = file('docs/MODRINTH.md').text
+}
+tasks.named('modrinth') { notCompatibleWithConfigurationCache('Minotaur reads Task.project') }
+
+// Minotaur 2.10 does not implement -PmodrinthDryRun itself. Make the release gate
+// explicitly non-publishing rather than silently running the upload action.
+if (providers.gradleProperty('modrinthDryRun').isPresent()) {
+    tasks.register('modrinthPreview') {
+        dependsOn tasks.named('jar'), tasks.named('sourcesJar')
+        doLast {
+            def preview = [project: 'forgeweave-tier-fix', version: project.version,
+                gameVersions: ['1.21.1'], loaders: ['neoforge'], environment: 'server_only_client_optional',
+                requiredVersion: '7cWAIT8X', file: tasks.jar.archiveFile.get().asFile.name,
+                sources: tasks.sourcesJar.archiveFile.get().asFile.name]
+            println groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(preview))
+            println modrinth.changelog.get()
+            println 'Dry run: upload action disabled.'
+        }
+    }
+    tasks.named('modrinth') {
+        dependsOn 'modrinthPreview'
+        onlyIf { false }
+    }
+}
+
+// Dedicated-server integration test: no window, no audio, exits by itself.
+neoForge {
+    mods { tierfix_test { sourceSet sourceSets.testmod } }
+    runs {
+        tierTest {
+            server()
+            gameDirectory = file('build/tier-test-run')
+            programArgument '--nogui'
+        }
+    }
+}
+tasks.named('runTierTest') {
+    doFirst {
+        def dir = file('build/tier-test-run'); dir.mkdirs()
+        new File(dir, 'tierfix-test-passed.txt').delete()
+        new File(dir, 'eula.txt').text = 'eula=true\n'
+        new File(dir, 'server.properties').text = 'online-mode=false\nserver-ip=127.0.0.1\nserver-port=0\nlevel-type=minecraft:flat\ngenerator-settings={"layers":[{"block":"minecraft:bedrock","height":1}],"biome":"minecraft:plains"}\nview-distance=2\nsimulation-distance=2\n'
+    }
+    doLast {
+        def marker = file('build/tier-test-run/tierfix-test-passed.txt')
+        if (!marker.exists()) throw new GradleException('Integration test did not report success')
+        println marker.text
+    }
+}
